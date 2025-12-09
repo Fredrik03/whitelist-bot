@@ -46,10 +46,10 @@ const whitelistCommand = new SlashCommandBuilder()
 async function registerCommands() {
   try {
     log('INFO', 'Registering slash commands...');
-    const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN);
+    const rest = new REST({ version: '10' }).setToken(DISCORD_TOKEN!);
 
     await rest.put(
-      Routes.applicationCommands(CLIENT_ID),
+      Routes.applicationCommands(CLIENT_ID!),
       { body: [whitelistCommand.toJSON()] }
     );
 
@@ -130,8 +130,8 @@ async function handleWhitelistCommand(interaction: ChatInputCommandInteraction) 
       .setTimestamp();
 
     try {
-      const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
-      if (channel?.isTextBased()) {
+      const channel = await client.channels.fetch(DISCORD_CHANNEL_ID!);
+      if (channel?.isTextBased() && 'send' in channel) {
         await channel.send({ embeds: [successEmbed] });
       }
     } catch (error) {
@@ -155,8 +155,8 @@ async function handleWhitelistCommand(interaction: ChatInputCommandInteraction) 
       .setTimestamp();
 
     try {
-      const channel = await client.channels.fetch(DISCORD_CHANNEL_ID);
-      if (channel?.isTextBased()) {
+      const channel = await client.channels.fetch(DISCORD_CHANNEL_ID!);
+      if (channel?.isTextBased() && 'send' in channel) {
         await channel.send({ embeds: [errorEmbed] });
       }
     } catch (error) {
@@ -214,7 +214,7 @@ async function start() {
   try {
     log('INFO', 'Starting whitelist bot...');
     await registerCommands();
-    await client.login(DISCORD_TOKEN);
+    await client.login(DISCORD_TOKEN!);
   } catch (error) {
     log('ERROR', `Failed to start bot: ${error}`);
     process.exit(1);
