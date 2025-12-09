@@ -1,0 +1,25 @@
+version: '3.8'
+
+services:
+  whitelist-bot:
+    build: .
+    container_name: whitelist-bot
+    restart: unless-stopped
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+    environment:
+      - DB_PATH=/data/whitelist.db
+    networks:
+      - bot-network
+    healthcheck:
+      test: ["CMD", "node", "-e", "const {Client,GatewayIntentBits}=require('discord.js');const c=new Client({intents:[GatewayIntentBits.Guilds]});c.on('ready',()=>{console.log('healthy');process.exit(0)});c.login(process.env.DISCORD_TOKEN).catch(()=>process.exit(1));setTimeout(()=>process.exit(1),5000);"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+networks:
+  bot-network:
+    driver: bridge
