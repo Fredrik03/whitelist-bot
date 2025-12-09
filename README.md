@@ -66,23 +66,78 @@ Discord bot for whitelisting players on a Minecraft server via Pterodactyl API.
 
 ### 4. Deployment
 
-#### Using Docker Compose (Recommended)
+#### Using Docker Compose on Unraid (Recommended)
+
+The bot is automatically built and published to GitHub Container Registry. Simply use the provided `docker-compose.yml`:
+
+1. Create a directory on your Unraid server:
+   ```bash
+   mkdir -p /mnt/user/appdata/whitelist-bot
+   cd /mnt/user/appdata/whitelist-bot
+   ```
+
+2. Create a `.env` file with your configuration:
+   ```env
+   DISCORD_TOKEN=your_bot_token
+   DISCORD_CLIENT_ID=your_application_client_id
+   DISCORD_CHANNEL_ID=channel_id_for_confirmations
+   PTERODACTYL_URL=https://panel.example.com
+   PTERODACTYL_SERVER_ID=short_uuid
+   PTERODACTYL_API_KEY=ptlc_your_api_key
+   ```
+
+3. Download the `docker-compose.yml` from this repository
+
+4. Start the bot:
+   ```bash
+   docker-compose up -d
+   ```
+
+5. View logs:
+   ```bash
+   docker-compose logs -f whitelist-bot
+   ```
+
+The Docker image is automatically updated when changes are pushed to the main branch. The image is pulled from `ghcr.io/fredrik03/whitelist-bot:main`.
+
+#### Using Docker Compose Manager Plugin (Unraid)
+
+If you have the Docker Compose Manager plugin installed on Unraid:
+
+1. Navigate to the Docker Compose Manager in Unraid
+2. Click "Add New Stack"
+3. Name it `whitelist-bot`
+4. Paste the contents of `docker-compose.yml`
+5. Add your environment variables in the `.env` section
+6. Click "Compose Up"
+
+#### Manual Docker Setup
 
 ```bash
-# Build and start the bot
-docker-compose up -d
+# Pull the latest image
+docker pull ghcr.io/fredrik03/whitelist-bot:main
+
+# Run container
+docker run -d \
+  --name whitelist-bot \
+  --restart unless-stopped \
+  -e DISCORD_TOKEN=your_token \
+  -e DISCORD_CLIENT_ID=your_client_id \
+  -e DISCORD_CHANNEL_ID=your_channel_id \
+  -e PTERODACTYL_URL=https://panel.example.com \
+  -e PTERODACTYL_SERVER_ID=your_server_id \
+  -e PTERODACTYL_API_KEY=your_api_key \
+  -e DB_PATH=/data/whitelist.db \
+  -v /mnt/user/appdata/whitelist-bot/data:/data \
+  ghcr.io/fredrik03/whitelist-bot:main
 
 # View logs
-docker-compose logs -f
-
-# Stop the bot
-docker-compose down
-
-# Rebuild after code changes
-docker-compose up -d --build
+docker logs -f whitelist-bot
 ```
 
-#### Using Docker directly
+#### Building Locally (Development)
+
+If you want to build the image locally instead of using the pre-built one:
 
 ```bash
 # Build image
@@ -95,23 +150,7 @@ docker run -d \
   --env-file .env \
   -v $(pwd)/data:/data \
   whitelist-bot
-
-# View logs
-docker logs -f whitelist-bot
 ```
-
-### 5. Unraid Setup
-
-1. Go to Docker tab
-2. Click "Add Container"
-3. Configure:
-   - Name: `whitelist-bot`
-   - Repository: Build from local path or use image
-   - Network Type: `Bridge`
-4. Add environment variables from `.env`
-5. Add volume mapping: `/mnt/user/appdata/whitelist-bot/data` -> `/data`
-6. Set restart policy to `unless-stopped`
-7. Apply and start
 
 ## Usage
 

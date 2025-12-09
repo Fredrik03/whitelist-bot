@@ -2,15 +2,20 @@ version: '3.8'
 
 services:
   whitelist-bot:
-    build: .
+    image: ghcr.io/fredrik03/whitelist-bot:main
     container_name: whitelist-bot
     restart: unless-stopped
-    env_file:
-      - .env
     volumes:
-      - ./data:/data
+      - /mnt/user/appdata/whitelist-bot/data:/data
     environment:
+      - TZ=Europe/Oslo
       - DB_PATH=/data/whitelist.db
+      - DISCORD_TOKEN=${DISCORD_TOKEN}
+      - DISCORD_CLIENT_ID=${DISCORD_CLIENT_ID}
+      - DISCORD_CHANNEL_ID=${DISCORD_CHANNEL_ID}
+      - PTERODACTYL_URL=${PTERODACTYL_URL}
+      - PTERODACTYL_SERVER_ID=${PTERODACTYL_SERVER_ID}
+      - PTERODACTYL_API_KEY=${PTERODACTYL_API_KEY}
     networks:
       - bot-network
     healthcheck:
