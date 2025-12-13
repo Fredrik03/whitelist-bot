@@ -181,9 +181,10 @@ client.once('ready', () => {
 
   // Start status monitor if channel ID is configured
   if (DISCORD_STATUS_CHANNEL_ID) {
-    statusMonitor = new StatusMonitor(client, DISCORD_STATUS_CHANNEL_ID);
+    const updateInterval = parseInt(process.env.STATUS_UPDATE_INTERVAL || '30000', 10);
+    statusMonitor = new StatusMonitor(client, DISCORD_STATUS_CHANNEL_ID, updateInterval);
     statusMonitor.start();
-    log('INFO', 'Status monitor initialized');
+    log('INFO', `Status monitor initialized (update interval: ${updateInterval}ms)`);
   } else {
     log('WARN', 'DISCORD_STATUS_CHANNEL_ID not set, status monitor disabled');
   }

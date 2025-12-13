@@ -60,8 +60,19 @@ class MinecraftQuery {
       };
 
     } catch (error) {
-      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
-      log('ERROR', `Failed to query Minecraft server: ${errorMessage}`);
+      let errorMessage = 'Unknown error';
+
+      if (error instanceof Error) {
+        errorMessage = error.message;
+        log('ERROR', `Failed to query Minecraft server: ${errorMessage}`);
+        log('ERROR', `Error stack: ${error.stack}`);
+      } else {
+        errorMessage = String(error);
+        log('ERROR', `Failed to query Minecraft server (non-Error): ${JSON.stringify(error)}`);
+      }
+
+      // Log connection details for debugging
+      log('ERROR', `Connection attempted to: ${this.host}:${this.port}`);
 
       return {
         success: false,
