@@ -121,7 +121,7 @@ The bot is automatically built and published to GitHub Container Registry. Simpl
    docker-compose logs -f whitelist-bot
    ```
 
-The Docker image is automatically updated when changes are pushed to the main branch. The image is pulled from `ghcr.io/fredrik03/whitelist-bot:main`.
+The Docker image is automatically updated when changes are pushed to the master branch. The image is pulled from `ghcr.io/fredrik03/whitelist-bot:latest`.
 
 #### Using Docker Compose Manager Plugin (Unraid)
 
@@ -138,7 +138,7 @@ If you have the Docker Compose Manager plugin installed on Unraid:
 
 ```bash
 # Pull the latest image
-docker pull ghcr.io/fredrik03/whitelist-bot:main
+docker pull ghcr.io/fredrik03/whitelist-bot:latest
 
 # Run container
 docker run -d \
@@ -155,7 +155,7 @@ docker run -d \
   -e MINECRAFT_SERVER_PORT=25565 \
   -e DB_PATH=/data/whitelist.db \
   -v /mnt/user/appdata/whitelist-bot/data:/data \
-  ghcr.io/fredrik03/whitelist-bot:main
+  ghcr.io/fredrik03/whitelist-bot:latest
 
 # View logs
 docker logs -f whitelist-bot
