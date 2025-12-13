@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   whitelist-bot:
-    image: ghcr.io/fredrik03/whitelist-bot:main
+    image: ghcr.io/fredrik03/whitelist-bot:latest
     container_name: whitelist-bot
     restart: unless-stopped
     volumes:
