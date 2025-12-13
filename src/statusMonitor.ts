@@ -1,5 +1,6 @@
 import { Client, EmbedBuilder, TextChannel } from 'discord.js';
 import { pterodactyl, ServerStatus } from './pterodactyl';
+import { minecraftQuery, PlayerInfo } from './minecraftQuery';
 import { log } from './utils';
 
 export class StatusMonitor {
@@ -53,8 +54,18 @@ export class StatusMonitor {
         return;
       }
 
-      const result = await pterodactyl.getServerStatus();
-      const embed = this.createStatusEmbed(result.success, result.status, result.error);
+      // Fetch both server status and player info
+      const serverResult = await pterodactyl.getServerStatus();
+      const playerResult = minecraftQuery.isEnabled()
+        ? await minecraftQuery.getPlayers()
+        : { success: false as const, error: 'Not configured' };
+
+      const embed = this.createStatusEmbed(
+        serverResult.success,
+        serverResult.status,
+        playerResult.success ? playerResult.playerInfo : undefined,
+        serverResult.error
+      );
 
       // Update or create message
       if (this.statusMessageId) {
@@ -81,7 +92,7 @@ export class StatusMonitor {
   /**
    * Create status embed based on server data
    */
-  private createStatusEmbed(success: boolean, status?: ServerStatus, error?: string): EmbedBuilder {
+  private createStatusEmbed(success: boolean, status?: ServerStatus, playerInfo?: PlayerInfo, error?: string): EmbedBuilder {
     const embed = new EmbedBuilder()
       .setTitle('🖥️ Server Status')
       .setTimestamp();
@@ -92,7 +103,7 @@ export class StatusMonitor {
         .setColor(0xED4245) // Red
         .addFields(
           { name: 'Status', value: '🔴 Offline', inline: true },
-          { name: 'Players', value: '0', inline: true },
+          { name: 'Players', value: '0/0', inline: true },
           { name: '\u200B', value: '\u200B', inline: true }
         );
 
@@ -144,15 +155,40 @@ export class StatusMonitor {
     // Format uptime
     const uptimeStr = this.formatUptime(status.resources.uptime);
 
+    // Format player info
+    let playersValue = 'N/A';
+    if (playerInfo) {
+      playersValue = `${playerInfo.online}/${playerInfo.max}`;
+    }
+
     embed
       .setColor(color)
       .addFields(
         { name: 'Status', value: `${statusEmoji} ${statusText}`, inline: true },
+        { name: 'Players', value: playersValue, inline: true },
         { name: 'CPU', value: `${cpuPercent}%`, inline: true },
+        { name: 'Memory', value: `${memoryUsedMB} MB / ${memoryLimitMB} MB (${memoryPercent}%)`, inline: true },
         { name: 'Uptime', value: uptimeStr, inline: true },
-        { name: 'Memory', value: `${memoryUsedMB} MB / ${memoryLimitMB} MB (${memoryPercent}%)`, inline: false }
-      )
-      .setFooter({ text: 'Updates every 60 seconds • Last updated' });
+        { name: '\u200B', value: '\u200B', inline: true }
+      );
+
+    // Add player list if available and not too many players
+    if (playerInfo && playerInfo.players.length > 0) {
+      const maxPlayersToShow = 15;
+      let playerList: string;
+
+      if (playerInfo.players.length <= maxPlayersToShow) {
+        playerList = playerInfo.players.join(', ');
+      } else {
+        const shown = playerInfo.players.slice(0, maxPlayersToShow);
+        const remaining = playerInfo.players.length - maxPlayersToShow;
+        playerList = `${shown.join(', ')} +${remaining} more`;
+      }
+
+      embed.addFields({ name: 'Online Players', value: playerList, inline: false });
+    }
+
+    embed.setFooter({ text: 'Updates every 60 seconds • Last updated' });
 
     return embed;
   }
