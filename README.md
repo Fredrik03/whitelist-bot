@@ -19,7 +19,7 @@ Discord bot for managing Minecraft servers: whitelist players and monitor real-t
 - 🟢 **Live server status** - Online/Offline/Starting/Stopping indicators
 - 👥 **Player tracking** - Shows player count and list of online players
 - 💻 **Resource monitoring** - CPU usage, RAM usage, and uptime
-- 🔄 **Auto-updating** - Status embed updates every 60 seconds
+- 🔄 **Auto-updating** - Status embed updates every 30 seconds (configurable)
 - 🎨 **Clean UI** - Color-coded Discord embeds with status emojis
 - ⚙️ **Non-intrusive** - Updates a single message (no spam!)
 
@@ -78,6 +78,7 @@ Discord bot for managing Minecraft servers: whitelist players and monitor real-t
 
    # Optional: Server status monitoring
    DISCORD_STATUS_CHANNEL_ID=channel_id_for_status_updates
+   STATUS_UPDATE_INTERVAL=30000  # Update interval in ms (default: 30000 = 30 seconds)
 
    # Optional: Player tracking (requires enable-query=true in server.properties)
    MINECRAFT_SERVER_HOST=your.minecraft.server.com
@@ -206,7 +207,7 @@ When `DISCORD_STATUS_CHANNEL_ID` is configured, the bot automatically creates an
 - 📋 **Online Players**: List of player names (up to 15 shown)
 
 **How it works:**
-- Updates every 60 seconds automatically
+- Updates every 30 seconds by default (configurable via `STATUS_UPDATE_INTERVAL`)
 - Updates a single message (no spam!)
 - Color-coded status: 🟢 Green (Online), 🟡 Yellow (Starting/Stopping), 🔴 Red (Offline)
 - Automatically recreates message if manually deleted
