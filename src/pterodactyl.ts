@@ -13,6 +13,25 @@ export interface PterodactylResult {
   statusCode?: number;
 }
 
+export interface ServerStatus {
+  state: 'running' | 'offline' | 'starting' | 'stopping';
+  resources: {
+    memory_bytes: number;
+    memory_limit_bytes: number;
+    cpu_absolute: number;
+    disk_bytes: number;
+    network_rx_bytes: number;
+    network_tx_bytes: number;
+    uptime: number;
+  };
+}
+
+export interface ServerStatusResult {
+  success: boolean;
+  status?: ServerStatus;
+  error?: string;
+}
+
 class PterodactylAPI {
   private config: PterodactylConfig;
 
@@ -72,6 +91,62 @@ class PterodactylAPI {
 
     } catch (error) {
       return this.handleError(error as AxiosError, username);
+    }
+  }
+
+  /**
+   * Gets server status and resource usage
+   */
+  public async getServerStatus(): Promise<ServerStatusResult> {
+    const endpoint = `${this.config.url}/api/client/servers/${this.config.serverId}/resources`;
+
+    try {
+      const response = await axios.get(endpoint, {
+        headers: {
+          'Authorization': `Bearer ${this.config.apiKey}`,
+          'Accept': 'Application/vnd.pterodactyl.v1+json',
+          'Content-Type': 'application/json'
+        },
+        timeout: 10000
+      });
+
+      if (response.status === 200 && response.data?.attributes) {
+        const attrs = response.data.attributes;
+        return {
+          success: true,
+          status: {
+            state: attrs.current_state,
+            resources: {
+              memory_bytes: attrs.resources.memory_bytes,
+              memory_limit_bytes: attrs.resources.memory_limit_bytes,
+              cpu_absolute: attrs.resources.cpu_absolute,
+              disk_bytes: attrs.resources.disk_bytes,
+              network_rx_bytes: attrs.resources.network_rx_bytes,
+              network_tx_bytes: attrs.resources.network_tx_bytes,
+              uptime: attrs.resources.uptime
+            }
+          }
+        };
+      }
+
+      return {
+        success: false,
+        error: 'Unexpected API response format'
+      };
+
+    } catch (error) {
+      const axiosError = error as AxiosError;
+      if (axiosError.response?.status === 403) {
+        return {
+          success: false,
+          error: 'API access denied'
+        };
+      }
+
+      return {
+        success: false,
+        error: axiosError.message || 'Failed to fetch server status'
+      };
     }
   }
 

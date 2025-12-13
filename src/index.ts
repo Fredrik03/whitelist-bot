@@ -13,18 +13,23 @@ import { database } from './database';
 import { pterodactyl } from './pterodactyl';
 import { validateUsername } from './validators';
 import { log, formatDate } from './utils';
+import { StatusMonitor } from './statusMonitor';
 
 // Load environment variables
 dotenv.config();
 
 const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
+const DISCORD_STATUS_CHANNEL_ID = process.env.DISCORD_STATUS_CHANNEL_ID;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
 
 if (!DISCORD_TOKEN || !DISCORD_CHANNEL_ID || !CLIENT_ID) {
   log('ERROR', 'Missing required Discord environment variables');
   process.exit(1);
 }
+
+// Status monitor instance (initialized when bot is ready)
+let statusMonitor: StatusMonitor | undefined;
 
 // Create Discord client
 const client = new Client({
@@ -173,6 +178,15 @@ async function handleWhitelistCommand(interaction: ChatInputCommandInteraction) 
 client.once('ready', () => {
   log('INFO', `Bot logged in as ${client.user?.tag}`);
   log('INFO', 'Whitelist bot is ready!');
+
+  // Start status monitor if channel ID is configured
+  if (DISCORD_STATUS_CHANNEL_ID) {
+    statusMonitor = new StatusMonitor(client, DISCORD_STATUS_CHANNEL_ID);
+    statusMonitor.start();
+    log('INFO', 'Status monitor initialized');
+  } else {
+    log('WARN', 'DISCORD_STATUS_CHANNEL_ID not set, status monitor disabled');
+  }
 });
 
 // Handle interactions
@@ -201,6 +215,9 @@ client.on('interactionCreate', async (interaction) => {
 // Graceful shutdown
 function shutdown(signal: string) {
   log('INFO', `Received ${signal}, shutting down gracefully...`);
+  if (statusMonitor) {
+    statusMonitor.stop();
+  }
   database.close();
   client.destroy();
   process.exit(0);
