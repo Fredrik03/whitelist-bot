@@ -1,9 +1,10 @@
-# Whitelist Bot
+# Minecraft Server Manager Bot
 
-Discord bot for whitelisting players on a Minecraft server via Pterodactyl API.
+Discord bot for managing Minecraft servers: whitelist players and monitor real-time server status via Pterodactyl API.
 
 ## Features
 
+### Whitelist Management
 - `/whitelist <username>` slash command
 - Username validation (3-16 characters, a-z A-Z 0-9 _)
 - Support for Bedrock players (optional . prefix)
@@ -13,8 +14,19 @@ Discord bot for whitelisting players on a Minecraft server via Pterodactyl API.
 - Detailed error messages
 - Ephemeral error messages (only visible to user)
 - Public success/error embeds in configured channel
+
+### Real-Time Server Status Monitor
+- 🟢 **Live server status** - Online/Offline/Starting/Stopping indicators
+- 👥 **Player tracking** - Shows player count and list of online players
+- 💻 **Resource monitoring** - CPU usage, RAM usage, and uptime
+- 🔄 **Auto-updating** - Status embed updates every 60 seconds
+- 🎨 **Clean UI** - Color-coded Discord embeds with status emojis
+- ⚙️ **Non-intrusive** - Updates a single message (no spam!)
+
+### General
 - Docker support with health checks
 - Graceful shutdown handling
+- Comprehensive error handling and logging
 
 ## Requirements
 
@@ -56,12 +68,20 @@ Discord bot for whitelisting players on a Minecraft server via Pterodactyl API.
    ```
 4. Edit `.env` and fill in your values:
    ```env
+   # Required for whitelist functionality
    DISCORD_TOKEN=your_bot_token
    DISCORD_CLIENT_ID=your_application_client_id
    DISCORD_CHANNEL_ID=channel_id_for_confirmations
    PTERODACTYL_URL=https://panel.example.com
    PTERODACTYL_SERVER_ID=short_uuid
    PTERODACTYL_API_KEY=ptlc_your_api_key
+
+   # Optional: Server status monitoring
+   DISCORD_STATUS_CHANNEL_ID=channel_id_for_status_updates
+
+   # Optional: Player tracking (requires enable-query=true in server.properties)
+   MINECRAFT_SERVER_HOST=your.minecraft.server.com
+   MINECRAFT_SERVER_PORT=25565
    ```
 
 ### 4. Deployment
@@ -81,9 +101,12 @@ The bot is automatically built and published to GitHub Container Registry. Simpl
    DISCORD_TOKEN=your_bot_token
    DISCORD_CLIENT_ID=your_application_client_id
    DISCORD_CHANNEL_ID=channel_id_for_confirmations
+   DISCORD_STATUS_CHANNEL_ID=channel_id_for_status_updates
    PTERODACTYL_URL=https://panel.example.com
    PTERODACTYL_SERVER_ID=short_uuid
    PTERODACTYL_API_KEY=ptlc_your_api_key
+   MINECRAFT_SERVER_HOST=your.minecraft.server.com
+   MINECRAFT_SERVER_PORT=25565
    ```
 
 3. Download the `docker-compose.yml` from this repository
@@ -124,9 +147,12 @@ docker run -d \
   -e DISCORD_TOKEN=your_token \
   -e DISCORD_CLIENT_ID=your_client_id \
   -e DISCORD_CHANNEL_ID=your_channel_id \
+  -e DISCORD_STATUS_CHANNEL_ID=your_status_channel_id \
   -e PTERODACTYL_URL=https://panel.example.com \
   -e PTERODACTYL_SERVER_ID=your_server_id \
   -e PTERODACTYL_API_KEY=your_api_key \
+  -e MINECRAFT_SERVER_HOST=your.minecraft.server.com \
+  -e MINECRAFT_SERVER_PORT=25565 \
   -e DB_PATH=/data/whitelist.db \
   -v /mnt/user/appdata/whitelist-bot/data:/data \
   ghcr.io/fredrik03/whitelist-bot:main
@@ -166,6 +192,33 @@ The bot will:
 3. Send command to Pterodactyl
 4. Save to database on success
 5. Send confirmation embed in channel
+
+### Server Status Monitor
+
+When `DISCORD_STATUS_CHANNEL_ID` is configured, the bot automatically creates and updates a status embed in the specified channel.
+
+**Status Information Displayed:**
+- 🟢 **Status**: Server state (Online/Starting/Stopping/Offline)
+- 👥 **Players**: Current player count (e.g., "5/20")
+- 💻 **CPU**: CPU usage percentage
+- 💾 **Memory**: RAM usage in MB and percentage
+- ⏱️ **Uptime**: Server uptime in human-readable format
+- 📋 **Online Players**: List of player names (up to 15 shown)
+
+**How it works:**
+- Updates every 60 seconds automatically
+- Updates a single message (no spam!)
+- Color-coded status: 🟢 Green (Online), 🟡 Yellow (Starting/Stopping), 🔴 Red (Offline)
+- Automatically recreates message if manually deleted
+- Shows "N/A" for players if Minecraft query is not configured
+
+**Player Tracking Setup:**
+For player names and count to work, add to your Minecraft server's `server.properties`:
+```properties
+enable-query=true
+query.port=25565
+```
+Then restart your Minecraft server.
 
 ### Valid Usernames
 
@@ -253,7 +306,9 @@ bot/
 ├── src/
 │   ├── index.ts          # Main bot file
 │   ├── database.ts       # SQLite operations
-│   ├── pterodactyl.ts    # API calls
+│   ├── pterodactyl.ts    # Pterodactyl API calls
+│   ├── minecraftQuery.ts # Minecraft server query
+│   ├── statusMonitor.ts  # Server status monitoring
 │   ├── validators.ts     # Username validation
 │   └── utils.ts          # Logging and formatting
 ├── data/                 # SQLite database (volume)
@@ -287,6 +342,21 @@ bot/
    ```bash
    docker exec -it whitelist-bot sqlite3 /data/whitelist.db "PRAGMA integrity_check;"
    ```
+
+### Status monitor not showing
+
+1. Verify `DISCORD_STATUS_CHANNEL_ID` is set in your `.env` file
+2. Check bot has permissions to send messages in the status channel
+3. Check logs: `docker logs whitelist-bot`
+4. Status monitor is optional - bot works fine without it
+
+### Player tracking shows "N/A"
+
+1. Ensure `MINECRAFT_SERVER_HOST` and `MINECRAFT_SERVER_PORT` are set
+2. Add `enable-query=true` to your Minecraft server's `server.properties`
+3. Restart your Minecraft server after changing server.properties
+4. Verify the server host and port are correct
+5. Player tracking is optional - status monitor works without it
 
 ## License
 
