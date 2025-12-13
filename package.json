@@ -1,7 +1,7 @@
 {
-  "name": "whitelist-bot",
-  "version": "1.0.0",
-  "description": "Discord bot for whitelisting players on Minecraft server via Pterodactyl API",
+  "name": "minecraft-server-manager-bot",
+  "version": "2.0.0",
+  "description": "Discord bot for managing Minecraft servers: whitelist players and monitor real-time server status with player tracking",
   "main": "dist/index.js",
   "scripts": {
     "build": "tsc",
