@@ -10,10 +10,10 @@ export class StatusMonitor {
   private intervalHandle?: NodeJS.Timeout;
   private statusMessageId?: string;
 
-  constructor(client: Client, channelId: string, updateInterval: number = 60000) {
+  constructor(client: Client, channelId: string, updateInterval: number = 30000) {
     this.client = client;
     this.channelId = channelId;
-    this.updateInterval = updateInterval; // Default 60 seconds
+    this.updateInterval = updateInterval; // Default 30 seconds
   }
 
   /**
@@ -188,7 +188,8 @@ export class StatusMonitor {
       embed.addFields({ name: 'Online Players', value: playerList, inline: false });
     }
 
-    embed.setFooter({ text: 'Updates every 60 seconds • Last updated' });
+    const updateIntervalSeconds = Math.round(this.updateInterval / 1000);
+    embed.setFooter({ text: `Updates every ${updateIntervalSeconds} seconds • Last updated` });
 
     return embed;
   }
