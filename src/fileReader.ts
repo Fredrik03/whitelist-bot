@@ -38,23 +38,29 @@ export class FileReader {
           file: filePath
         },
         responseType: 'text',
-        timeout: 10000
+        timeout: 10000,
+        transformResponse: [(data) => data] // Don't let axios transform the response
       });
+
+      log('DEBUG', `File read response type: ${typeof response.data}`);
+      log('DEBUG', `File read response data: ${String(response.data).substring(0, 200)}`);
 
       // Ensure we return a string
       if (typeof response.data === 'string') {
         return response.data;
       }
 
-      // If it's not a string, convert it
-      return JSON.stringify(response.data);
+      // If it's an object, something went wrong
+      log('ERROR', `Unexpected response type: ${typeof response.data}, value: ${JSON.stringify(response.data)}`);
+      throw new Error(`File API returned unexpected data type: ${typeof response.data}`);
     } catch (error: any) {
       if (error.response?.status === 404) {
         throw new Error(`File not found: ${filePath}`);
       }
       log('ERROR', `File read error for ${filePath}: ${error.message}`);
       if (error.response?.data) {
-        log('ERROR', `Response data: ${typeof error.response.data === 'string' ? error.response.data : JSON.stringify(error.response.data)}`);
+        log('ERROR', `Response data type: ${typeof error.response.data}`);
+        log('ERROR', `Response data: ${String(error.response.data).substring(0, 500)}`);
       }
       throw new Error(`Failed to read file: ${error.message}`);
     }
