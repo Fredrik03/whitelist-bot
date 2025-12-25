@@ -123,7 +123,7 @@ class PterodactylAPI {
 
       // Wait for console output matching whitelist response
       const consolePromise = this.consoleListener.waitForConsoleMessage(
-        new RegExp(`(Added ${username} to the whitelist|That player is already whitelisted|Player does not exist)`, 'i'),
+        new RegExp(`(Added ${username} to the whitelist|That player is already whitelisted|player does not exist)`, 'i'),
         10000
       );
 
@@ -147,7 +147,7 @@ class PterodactylAPI {
           error: 'Spilleren er allerede whitelistet',
           consoleOutput: consoleOutput.trim()
         };
-      } else if (/Player does not exist/i.test(consoleOutput)) {
+      } else if (/player does not exist/i.test(consoleOutput)) {
         return {
           success: false,
           error: 'Spilleren finnes ikke (ugyldig brukernavn)',
@@ -180,7 +180,7 @@ class PterodactylAPI {
 
       // Wait for console output matching whitelist remove response
       const consolePromise = this.consoleListener.waitForConsoleMessage(
-        new RegExp(`(Removed ${username} from the whitelist|That player is not whitelisted|Player does not exist)`, 'i'),
+        new RegExp(`(Removed ${username} from the whitelist|That player is not whitelisted|player does not exist)`, 'i'),
         10000
       );
 
@@ -204,7 +204,7 @@ class PterodactylAPI {
           error: 'Spilleren er ikke whitelistet',
           consoleOutput: consoleOutput.trim()
         };
-      } else if (/Player does not exist/i.test(consoleOutput)) {
+      } else if (/player does not exist/i.test(consoleOutput)) {
         return {
           success: false,
           error: 'Spilleren finnes ikke',
