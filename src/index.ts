@@ -198,7 +198,7 @@ async function handleWhitelistCommand(interaction: ChatInputCommandInteraction) 
 }
 
 // Bot ready event
-client.once('ready', () => {
+client.once('ready', async () => {
   log('INFO', `Bot logged in as ${client.user?.tag}`);
   log('INFO', 'Whitelist bot is ready!');
 
@@ -206,7 +206,7 @@ client.once('ready', () => {
   if (DISCORD_STATUS_CHANNEL_ID) {
     const updateInterval = parseInt(process.env.STATUS_UPDATE_INTERVAL || '30000', 10);
     statusMonitor = new StatusMonitor(client, DISCORD_STATUS_CHANNEL_ID, updateInterval);
-    statusMonitor.start();
+    await statusMonitor.start();
     log('INFO', `Status monitor initialized (update interval: ${updateInterval}ms)`);
   } else {
     log('WARN', 'DISCORD_STATUS_CHANNEL_ID not set, status monitor disabled');
