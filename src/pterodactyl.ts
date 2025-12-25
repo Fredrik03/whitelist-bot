@@ -327,7 +327,7 @@ class PterodactylAPI {
       await this.fileReader.addToWhitelist(entry);
 
       // Reload whitelist
-      await this.sendCommand('whitelist reload');
+      this.consoleListener.sendCommand('whitelist reload');
 
       return {
         success: true,
