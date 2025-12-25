@@ -65,6 +65,16 @@ const whitelistSyncCommand = new SlashCommandBuilder()
   .setName('whitelist-sync')
   .setDescription('Synkroniser whitelist database med serveren');
 
+const whitelistBedrockCommand = new SlashCommandBuilder()
+  .setName('whitelist-bedrock')
+  .setDescription('Whitelist Bedrock spiller (ingen join påkrevd)')
+  .addStringOption(option =>
+    option
+      .setName('username')
+      .setDescription('Xbox gamertag (uten punktum)')
+      .setRequired(true)
+  );
+
 // Register slash commands
 async function registerCommands() {
   try {
@@ -77,7 +87,8 @@ async function registerCommands() {
         whitelistCommand.toJSON(),
         unwhitelistCommand.toJSON(),
         whitelistListCommand.toJSON(),
-        whitelistSyncCommand.toJSON()
+        whitelistSyncCommand.toJSON(),
+        whitelistBedrockCommand.toJSON()
       ] }
     );
 
@@ -348,6 +359,61 @@ async function handleWhitelistSyncCommand(interaction: ChatInputCommandInteracti
   }
 }
 
+async function handleWhitelistBedrockCommand(interaction: ChatInputCommandInteraction) {
+  const username = interaction.options.getString('username', true);
+  const userTag = interaction.user.tag;
+
+  log('INFO', `Whitelist Bedrock command received for ${username} by ${userTag}`);
+
+  // Validate username
+  const validation = validateUsername(username);
+  if (!validation.valid) {
+    await interaction.reply({
+      content: `❌ ${validation.error}`,
+      ephemeral: true
+    });
+    return;
+  }
+
+  // Defer reply
+  await interaction.deferReply();
+
+  // Whitelist from cache
+  const result = await pterodactyl.whitelistFromCache(username);
+
+  if (result.success) {
+    // Add to database
+    try {
+      database.addToWhitelist(username, interaction.user.id);
+      log('INFO', `Added ${username} to database (Bedrock player)`);
+    } catch (error: any) {
+      log('WARN', `Database insert failed: ${error.message}`);
+    }
+
+    const embed = new EmbedBuilder()
+      .setColor(0x57F287)
+      .setTitle('✅ Bedrock spiller whitelistet!')
+      .setDescription(`**${username}** har blitt lagt til på whitelist`)
+      .addFields(
+        { name: 'Type', value: 'Bedrock (GeyserMC)', inline: true },
+        { name: 'Av', value: userTag, inline: true }
+      )
+      .setFooter({ text: 'Whitelist System' })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+  } else {
+    const embed = new EmbedBuilder()
+      .setColor(0xED4245)
+      .setTitle('❌ Kunne ikke whiteliste spiller')
+      .setDescription(result.error || 'Ukjent feil')
+      .setFooter({ text: 'Whitelist System' })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+  }
+}
+
 // Handle interactions
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
@@ -365,6 +431,9 @@ client.on('interactionCreate', async (interaction) => {
         break;
       case 'whitelist-sync':
         await handleWhitelistSyncCommand(interaction);
+        break;
+      case 'whitelist-bedrock':
+        await handleWhitelistBedrockCommand(interaction);
         break;
     }
   } catch (error) {

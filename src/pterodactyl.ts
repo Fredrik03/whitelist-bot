@@ -287,6 +287,63 @@ class PterodactylAPI {
   }
 
   /**
+   * Whitelist a Bedrock player using GeyserMC API or server cache
+   * This bypasses Minecraft's whitelist command and writes directly to whitelist.json
+   */
+  public async whitelistFromCache(username: string): Promise<PterodactylResult> {
+    try {
+      let entry: WhitelistEntry | null = null;
+
+      // Remove the dot prefix if present for API lookup
+      const cleanUsername = username.startsWith('.') ? username.substring(1) : username;
+
+      // Step 1: Try GeyserMC API first (works without player joining)
+      log('INFO', `Attempting to get Floodgate UUID from GeyserMC API for ${cleanUsername}...`);
+      entry = await this.fileReader.gamertagToFloodgateUUID(cleanUsername);
+
+      // Step 2: Fall back to usercache if API fails
+      if (!entry) {
+        log('INFO', `API lookup failed, checking server usercache for ${username}...`);
+        entry = await this.fileReader.findInUserCache(username);
+      }
+
+      if (!entry) {
+        return {
+          success: false,
+          error: `Could not find ${username}. Make sure:\n` +
+                 `1. The Xbox gamertag is correct, OR\n` +
+                 `2. The player has joined the server at least once`
+        };
+      }
+
+      log('INFO', `Found ${entry.name} (UUID: ${entry.uuid})`);
+
+      // Add the dot prefix for Bedrock players if using API result
+      if (!entry.name.startsWith('.')) {
+        entry.name = `.${entry.name}`;
+      }
+
+      // Add to whitelist.json directly
+      await this.fileReader.addToWhitelist(entry);
+
+      // Reload whitelist
+      await this.sendCommand('whitelist reload');
+
+      return {
+        success: true,
+        consoleOutput: `Added ${entry.name} to whitelist`
+      };
+
+    } catch (error: any) {
+      log('ERROR', `Failed to whitelist Bedrock player: ${error.message}`);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Cleanup connections
    */
   public cleanup(): void {
