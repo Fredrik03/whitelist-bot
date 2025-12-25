@@ -42,16 +42,30 @@ export class FileReader {
         transformResponse: [(data) => data] // Don't let axios transform the response
       });
 
-      log('DEBUG', `File read response type: ${typeof response.data}`);
-      log('DEBUG', `File read response data: ${String(response.data).substring(0, 200)}`);
+      log('INFO', `File read response type: ${typeof response.data}`);
+      log('INFO', `File read response is Buffer: ${Buffer.isBuffer(response.data)}`);
+      log('INFO', `File read response constructor: ${response.data?.constructor?.name}`);
 
-      // Ensure we return a string
+      // Handle Buffer (axios might return Buffer even with responseType: 'text')
+      if (Buffer.isBuffer(response.data)) {
+        log('INFO', 'Converting Buffer to UTF-8 string');
+        const content = response.data.toString('utf-8');
+        log('INFO', `Converted content (first 200 chars): ${content.substring(0, 200)}`);
+        return content;
+      }
+
+      // Handle string response
       if (typeof response.data === 'string') {
+        log('INFO', `String response (first 200 chars): ${response.data.substring(0, 200)}`);
         return response.data;
       }
 
-      // If it's an object, something went wrong
-      log('ERROR', `Unexpected response type: ${typeof response.data}, value: ${JSON.stringify(response.data)}`);
+      // If it's an object, log details and throw error
+      log('ERROR', `Unexpected response type: ${typeof response.data}, constructor: ${response.data?.constructor?.name}`);
+      if (response.data && typeof response.data === 'object') {
+        log('ERROR', `Response data keys: ${Object.keys(response.data).join(', ')}`);
+        log('ERROR', `Response data: ${JSON.stringify(response.data).substring(0, 500)}`);
+      }
       throw new Error(`File API returned unexpected data type: ${typeof response.data}`);
     } catch (error: any) {
       if (error.response?.status === 404) {

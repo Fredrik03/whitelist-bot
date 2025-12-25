@@ -19,8 +19,11 @@ export class StatusMonitor {
   /**
    * Start monitoring server status
    */
-  public start() {
+  public async start() {
     log('INFO', `Starting status monitor for channel ${this.channelId}`);
+
+    // Try to find existing status message
+    await this.findExistingStatusMessage();
 
     // Initial update
     this.updateStatus();
@@ -29,6 +32,39 @@ export class StatusMonitor {
     this.intervalHandle = setInterval(() => {
       this.updateStatus();
     }, this.updateInterval);
+  }
+
+  /**
+   * Search channel for existing status message to reuse
+   */
+  private async findExistingStatusMessage() {
+    try {
+      const channel = await this.client.channels.fetch(this.channelId);
+
+      if (!channel || !channel.isTextBased() || !(channel instanceof TextChannel)) {
+        log('WARN', `Status channel ${this.channelId} is not a valid text channel`);
+        return;
+      }
+
+      // Fetch recent messages (limit 50)
+      const messages = await channel.messages.fetch({ limit: 50 });
+
+      // Find the most recent status embed from this bot
+      const statusMessage = messages.find(msg =>
+        msg.author.id === this.client.user?.id &&
+        msg.embeds.length > 0 &&
+        msg.embeds[0].title === '🖥️ Server Status'
+      );
+
+      if (statusMessage) {
+        this.statusMessageId = statusMessage.id;
+        log('INFO', `Found existing status message (ID: ${statusMessage.id}), reusing it`);
+      } else {
+        log('INFO', 'No existing status message found, will create new one');
+      }
+    } catch (error) {
+      log('ERROR', `Failed to search for existing status message: ${error}`);
+    }
   }
 
   /**
