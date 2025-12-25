@@ -395,7 +395,7 @@ async function handleWhitelistBedrockCommand(interaction: ChatInputCommandIntera
   if (result.success) {
     // Add to database
     try {
-      database.addToWhitelist(username, interaction.user.id);
+      database.addToWhitelist(username, interaction.user.id, userTag);
       log('INFO', `Added ${username} to database (Bedrock player)`);
     } catch (error: any) {
       log('WARN', `Database insert failed: ${error.message}`);
