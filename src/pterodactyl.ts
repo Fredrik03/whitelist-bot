@@ -287,6 +287,46 @@ class PterodactylAPI {
   }
 
   /**
+   * Whitelist a Bedrock player from usercache
+   * This bypasses Minecraft's whitelist command and writes directly to whitelist.json
+   */
+  public async whitelistFromCache(username: string): Promise<PterodactylResult> {
+    try {
+      log('INFO', `Looking for ${username} in usercache.json...`);
+
+      // Find player in usercache
+      const cacheEntry = await this.fileReader.findInUserCache(username);
+
+      if (!cacheEntry) {
+        return {
+          success: false,
+          error: `${username} not found in server cache. Player must join the server at least once.`
+        };
+      }
+
+      log('INFO', `Found ${username} in usercache (UUID: ${cacheEntry.uuid})`);
+
+      // Add to whitelist.json directly
+      await this.fileReader.addToWhitelist(cacheEntry);
+
+      // Reload whitelist
+      await this.sendCommand('whitelist reload');
+
+      return {
+        success: true,
+        consoleOutput: `Added ${username} to whitelist from cache`
+      };
+
+    } catch (error: any) {
+      log('ERROR', `Failed to whitelist from cache: ${error.message}`);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
+
+  /**
    * Cleanup connections
    */
   public cleanup(): void {
