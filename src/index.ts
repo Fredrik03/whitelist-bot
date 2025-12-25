@@ -39,11 +39,11 @@ const client = new Client({
 // Define slash commands
 const whitelistCommand = new SlashCommandBuilder()
   .setName('whitelist')
-  .setDescription('Whitelist en spiller på Minecraft serveren')
+  .setDescription('Whitelist Java eller Bedrock spiller')
   .addStringOption(option =>
     option
       .setName('username')
-      .setDescription('Minecraft brukernavn (3-16 tegn, a-z A-Z 0-9 _ og valgfritt . i starten)')
+      .setDescription('Brukernavn (Java: navn, Bedrock: .navn eller navn)')
       .setRequired(true)
   );
 
@@ -141,8 +141,18 @@ async function handleWhitelistCommand(interaction: ChatInputCommandInteraction) 
   // Defer reply since Pterodactyl call might take time
   await interaction.deferReply();
 
-  // Call Pterodactyl API with console feedback
-  const result = await pterodactyl.whitelistPlayerWithFeedback(username);
+  // Detect if this is a Bedrock player (username starts with .)
+  const isBedrockPlayer = username.startsWith('.');
+
+  // Call appropriate API method
+  let result;
+  if (isBedrockPlayer) {
+    log('INFO', `Detected Bedrock player ${username}, using GeyserMC method`);
+    result = await pterodactyl.whitelistFromCache(username);
+  } else {
+    log('INFO', `Detected Java player ${username}, using console method`);
+    result = await pterodactyl.whitelistPlayerWithFeedback(username);
+  }
 
   if (result.success) {
     // Add to database
@@ -162,8 +172,9 @@ async function handleWhitelistCommand(interaction: ChatInputCommandInteraction) 
       .setTitle('✅ Spiller whitelistet!')
       .addFields(
         { name: 'Brukernavn', value: username, inline: true },
+        { name: 'Type', value: isBedrockPlayer ? 'Bedrock' : 'Java', inline: true },
         { name: 'Lagt til av', value: `<@${userId}>`, inline: true },
-        { name: 'Tidspunkt', value: formatDate(new Date()), inline: true }
+        { name: 'Tidspunkt', value: formatDate(new Date()), inline: false }
       )
       .setFooter({ text: 'Whitelist System' })
       .setTimestamp();
