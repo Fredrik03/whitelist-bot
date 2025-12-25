@@ -403,8 +403,18 @@ async function start() {
     log('INFO', 'Starting whitelist bot...');
     await registerCommands();
     await client.login(DISCORD_TOKEN!);
-  } catch (error) {
+  } catch (error: any) {
     log('ERROR', `Failed to start bot: ${error}`);
+
+    // Check if it's a rate limit error
+    if (error.message && error.message.includes('sessions remaining')) {
+      log('ERROR', 'Discord rate limit reached. Waiting before retry...');
+      log('ERROR', 'Container will exit gracefully to prevent restart loop.');
+      // Exit with code 0 to prevent Docker restart
+      process.exit(0);
+    }
+
+    // Other errors - exit with error code
     process.exit(1);
   }
 }
