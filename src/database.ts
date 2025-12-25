@@ -77,6 +77,73 @@ class WhitelistDatabase {
     }
   }
 
+  public removeFromWhitelist(username: string): void {
+    try {
+      const stmt = this.db.prepare('DELETE FROM whitelist WHERE username = ?');
+      const result = stmt.run(username);
+      if (result.changes > 0) {
+        log('INFO', `Removed ${username} from database`);
+      } else {
+        log('WARN', `${username} was not in database`);
+      }
+    } catch (error) {
+      log('ERROR', `Database error removing ${username}: ${error}`);
+      throw error;
+    }
+  }
+
+  public getAllWhitelisted(): WhitelistEntry[] {
+    try {
+      const stmt = this.db.prepare('SELECT * FROM whitelist ORDER BY added_at DESC');
+      return stmt.all() as WhitelistEntry[];
+    } catch (error) {
+      log('ERROR', `Database error getting all whitelisted players: ${error}`);
+      throw error;
+    }
+  }
+
+  public syncWithServerWhitelist(serverWhitelist: { name: string; uuid: string }[]): { added: number; removed: number } {
+    try {
+      const serverUsernames = new Set(serverWhitelist.map(entry => entry.name.toLowerCase()));
+      const dbEntries = this.getAllWhitelisted();
+      const dbUsernames = new Set(dbEntries.map(entry => entry.username.toLowerCase()));
+
+      let added = 0;
+      let removed = 0;
+
+      // Add players that are on server but not in database
+      for (const serverEntry of serverWhitelist) {
+        if (!dbUsernames.has(serverEntry.name.toLowerCase())) {
+          try {
+            this.addToWhitelist(serverEntry.name, 'SYNC', 'Server Sync');
+            added++;
+          } catch (error) {
+            log('WARN', `Failed to add ${serverEntry.name} during sync: ${error}`);
+          }
+        }
+      }
+
+      // Remove players that are in database but not on server
+      for (const dbEntry of dbEntries) {
+        if (!serverUsernames.has(dbEntry.username.toLowerCase())) {
+          try {
+            this.removeFromWhitelist(dbEntry.username);
+            removed++;
+          } catch (error) {
+            log('WARN', `Failed to remove ${dbEntry.username} during sync: ${error}`);
+          }
+        }
+      }
+
+      log('INFO', `Whitelist sync complete: ${added} added, ${removed} removed`);
+      return { added, removed };
+
+    } catch (error) {
+      log('ERROR', `Database error during sync: ${error}`);
+      throw error;
+    }
+  }
+
   public close(): void {
     try {
       this.db.close();

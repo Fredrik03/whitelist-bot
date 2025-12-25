@@ -2,20 +2,25 @@
 
 Discord bot for managing Minecraft servers: whitelist players and monitor real-time server status via Pterodactyl API.
 
-## Features
+## Key Features
 
-### Whitelist Management
-- `/whitelist <username>` slash command
+### 🎯 Smart Whitelist Management
+- `/whitelist <username>` - Add player to whitelist
+- `/unwhitelist <username>` - Remove player from whitelist
+- `/whitelist-list` - View all whitelisted players from server
+- `/whitelist-sync` - Sync database with server's whitelist.json
+- **Real-time console feedback** - Reads actual server responses via WebSocket
+- **File verification** - Reads whitelist.json directly from server
 - Username validation (3-16 characters, a-z A-Z 0-9 _)
 - Support for Bedrock players (optional . prefix)
 - SQLite database for tracking whitelisted players
-- Pterodactyl API integration
+- Pterodactyl API integration with WebSocket support
 - Duplicate detection
-- Detailed error messages
+- Detailed error messages from server console
 - Ephemeral error messages (only visible to user)
 - Public success/error embeds in configured channel
 
-### Real-Time Server Status Monitor
+### 📊 Real-Time Server Status Monitor
 - 🟢 **Live server status** - Online/Offline/Starting/Stopping indicators
 - 👥 **Player tracking** - Shows player count and list of online players
 - 💻 **Resource monitoring** - CPU usage, RAM usage, and uptime
@@ -23,7 +28,10 @@ Discord bot for managing Minecraft servers: whitelist players and monitor real-t
 - 🎨 **Clean UI** - Color-coded Discord embeds with status emojis
 - ⚙️ **Non-intrusive** - Updates a single message (no spam!)
 
-### General
+### ⚙️ Technical Features
+- **WebSocket console integration** - Real-time server communication
+- **File API integration** - Direct access to server files
+- **Automatic fallback** - Falls back to regular API if WebSocket fails
 - Docker support with health checks
 - Graceful shutdown handling
 - Comprehensive error handling and logging
@@ -181,18 +189,46 @@ docker run -d \
 
 ## Usage
 
-### Whitelist Command
+### Whitelist Commands
 
+**Add a player to whitelist:**
 ```
 /whitelist Player123
 ```
 
 The bot will:
 1. Validate the username
-2. Check if already whitelisted
-3. Send command to Pterodactyl
-4. Save to database on success
-5. Send confirmation embed in channel
+2. Check if already whitelisted in database
+3. Connect to server console via WebSocket
+4. Send whitelist command and wait for server response
+5. Parse console output to verify success/failure
+6. Save to database on success
+7. Send confirmation embed in channel
+
+**Remove a player from whitelist:**
+```
+/unwhitelist Player123
+```
+
+The bot will:
+1. Send remove command via WebSocket
+2. Wait for console confirmation
+3. Remove from database
+4. Send confirmation embed
+
+**View all whitelisted players:**
+```
+/whitelist-list
+```
+
+Reads the actual whitelist.json file from the server and displays all players.
+
+**Sync database with server:**
+```
+/whitelist-sync
+```
+
+Compares the server's whitelist.json with the local database and syncs them. Shows how many players were added/removed.
 
 ### Server Status Monitor
 
@@ -305,9 +341,11 @@ npm start
 ```
 bot/
 ├── src/
-│   ├── index.ts          # Main bot file
-│   ├── database.ts       # SQLite operations
-│   ├── pterodactyl.ts    # Pterodactyl API calls
+│   ├── index.ts          # Main bot file with all command handlers
+│   ├── database.ts       # SQLite operations and sync logic
+│   ├── pterodactyl.ts    # Pterodactyl API integration
+│   ├── consoleListener.ts # WebSocket console listener
+│   ├── fileReader.ts     # Server file reader (whitelist.json)
 │   ├── minecraftQuery.ts # Minecraft server query
 │   ├── statusMonitor.ts  # Server status monitoring
 │   ├── validators.ts     # Username validation

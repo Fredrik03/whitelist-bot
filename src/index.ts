@@ -36,7 +36,7 @@ const client = new Client({
   intents: [GatewayIntentBits.Guilds]
 });
 
-// Define slash command
+// Define slash commands
 const whitelistCommand = new SlashCommandBuilder()
   .setName('whitelist')
   .setDescription('Whitelist en spiller på Minecraft serveren')
@@ -47,6 +47,24 @@ const whitelistCommand = new SlashCommandBuilder()
       .setRequired(true)
   );
 
+const unwhitelistCommand = new SlashCommandBuilder()
+  .setName('unwhitelist')
+  .setDescription('Fjern en spiller fra whitelist')
+  .addStringOption(option =>
+    option
+      .setName('username')
+      .setDescription('Minecraft brukernavn')
+      .setRequired(true)
+  );
+
+const whitelistListCommand = new SlashCommandBuilder()
+  .setName('whitelist-list')
+  .setDescription('Vis alle spillere på whitelist');
+
+const whitelistSyncCommand = new SlashCommandBuilder()
+  .setName('whitelist-sync')
+  .setDescription('Synkroniser whitelist database med serveren');
+
 // Register slash commands
 async function registerCommands() {
   try {
@@ -55,7 +73,12 @@ async function registerCommands() {
 
     await rest.put(
       Routes.applicationCommands(CLIENT_ID!),
-      { body: [whitelistCommand.toJSON()] }
+      { body: [
+        whitelistCommand.toJSON(),
+        unwhitelistCommand.toJSON(),
+        whitelistListCommand.toJSON(),
+        whitelistSyncCommand.toJSON()
+      ] }
     );
 
     log('INFO', 'Successfully registered slash commands');
@@ -107,8 +130,8 @@ async function handleWhitelistCommand(interaction: ChatInputCommandInteraction) 
   // Defer reply since Pterodactyl call might take time
   await interaction.deferReply();
 
-  // Call Pterodactyl API
-  const result = await pterodactyl.whitelistPlayer(username);
+  // Call Pterodactyl API with console feedback
+  const result = await pterodactyl.whitelistPlayerWithFeedback(username);
 
   if (result.success) {
     // Add to database
@@ -190,25 +213,171 @@ client.once('ready', () => {
   }
 });
 
+// Handle unwhitelist command
+async function handleUnwhitelistCommand(interaction: ChatInputCommandInteraction) {
+  const username = interaction.options.getString('username', true);
+  const userTag = interaction.user.tag;
+  const userId = interaction.user.id;
+
+  log('INFO', `Unwhitelist command received for ${username} by ${userTag}`);
+
+  // Defer reply
+  await interaction.deferReply();
+
+  // Call Pterodactyl API to remove from whitelist
+  const result = await pterodactyl.unwhitelistPlayer(username);
+
+  if (result.success) {
+    // Remove from database if exists
+    try {
+      database.removeFromWhitelist(username);
+    } catch (error) {
+      log('WARN', `Failed to remove ${username} from database: ${error}`);
+    }
+
+    // Send success embed
+    const successEmbed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('✅ Spiller fjernet fra whitelist!')
+      .addFields(
+        { name: 'Brukernavn', value: username, inline: true },
+        { name: 'Fjernet av', value: `<@${userId}>`, inline: true },
+        { name: 'Tidspunkt', value: formatDate(new Date()), inline: true }
+      )
+      .setFooter({ text: 'Whitelist System' })
+      .setTimestamp();
+
+    try {
+      const channel = await client.channels.fetch(DISCORD_CHANNEL_ID!);
+      if (channel?.isTextBased() && 'send' in channel) {
+        await channel.send({ embeds: [successEmbed] });
+      }
+    } catch (error) {
+      log('ERROR', `Failed to send success embed to channel: ${error}`);
+    }
+
+    await interaction.editReply({
+      content: `✅ **${username}** har blitt fjernet fra whitelist!`
+    });
+
+  } else {
+    await interaction.editReply({
+      content: `❌ Kunne ikke fjerne **${username}** fra whitelist\n${result.error}`
+    });
+  }
+}
+
+// Handle whitelist list command
+async function handleWhitelistListCommand(interaction: ChatInputCommandInteraction) {
+  log('INFO', `Whitelist list command received by ${interaction.user.tag}`);
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    // Read whitelist from server
+    const whitelist = await pterodactyl.readWhitelist();
+
+    if (whitelist.length === 0) {
+      await interaction.editReply({
+        content: '📋 Whitelist er tom.'
+      });
+      return;
+    }
+
+    // Create embed with whitelist
+    const embed = new EmbedBuilder()
+      .setColor(0x5865F2)
+      .setTitle('📋 Whitelist')
+      .setDescription(`Totalt **${whitelist.length}** spillere på whitelist`)
+      .setFooter({ text: 'Whitelist System' })
+      .setTimestamp();
+
+    // Split into chunks of 25 (Discord field limit)
+    const chunkSize = 25;
+    for (let i = 0; i < whitelist.length; i += chunkSize) {
+      const chunk = whitelist.slice(i, i + chunkSize);
+      const playerList = chunk.map((entry, index) => `${i + index + 1}. ${entry.name}`).join('\n');
+      embed.addFields({
+        name: `Spillere ${i + 1}-${Math.min(i + chunkSize, whitelist.length)}`,
+        value: playerList,
+        inline: false
+      });
+    }
+
+    await interaction.editReply({ embeds: [embed] });
+
+  } catch (error: any) {
+    log('ERROR', `Failed to list whitelist: ${error.message}`);
+    await interaction.editReply({
+      content: '❌ Kunne ikke lese whitelist fra serveren.'
+    });
+  }
+}
+
+// Handle whitelist sync command
+async function handleWhitelistSyncCommand(interaction: ChatInputCommandInteraction) {
+  log('INFO', `Whitelist sync command received by ${interaction.user.tag}`);
+
+  await interaction.deferReply({ ephemeral: true });
+
+  try {
+    // Read whitelist from server
+    const whitelist = await pterodactyl.readWhitelist();
+
+    // Sync with database
+    const synced = database.syncWithServerWhitelist(whitelist);
+
+    const embed = new EmbedBuilder()
+      .setColor(0x57F287)
+      .setTitle('🔄 Whitelist synkronisert!')
+      .addFields(
+        { name: 'Spillere på server', value: whitelist.length.toString(), inline: true },
+        { name: 'Lagt til i database', value: synced.added.toString(), inline: true },
+        { name: 'Fjernet fra database', value: synced.removed.toString(), inline: true }
+      )
+      .setFooter({ text: 'Whitelist System' })
+      .setTimestamp();
+
+    await interaction.editReply({ embeds: [embed] });
+
+  } catch (error: any) {
+    log('ERROR', `Failed to sync whitelist: ${error.message}`);
+    await interaction.editReply({
+      content: '❌ Kunne ikke synkronisere whitelist.'
+    });
+  }
+}
+
 // Handle interactions
 client.on('interactionCreate', async (interaction) => {
   if (!interaction.isChatInputCommand()) return;
 
-  if (interaction.commandName === 'whitelist') {
-    try {
-      await handleWhitelistCommand(interaction);
-    } catch (error) {
-      log('ERROR', `Error handling whitelist command: ${error}`);
-      const reply = {
-        content: '❌ En feil oppstod under behandling av kommandoen.',
-        ephemeral: true
-      };
+  try {
+    switch (interaction.commandName) {
+      case 'whitelist':
+        await handleWhitelistCommand(interaction);
+        break;
+      case 'unwhitelist':
+        await handleUnwhitelistCommand(interaction);
+        break;
+      case 'whitelist-list':
+        await handleWhitelistListCommand(interaction);
+        break;
+      case 'whitelist-sync':
+        await handleWhitelistSyncCommand(interaction);
+        break;
+    }
+  } catch (error) {
+    log('ERROR', `Error handling command ${interaction.commandName}: ${error}`);
+    const reply = {
+      content: '❌ En feil oppstod under behandling av kommandoen.',
+      ephemeral: true
+    };
 
-      if (interaction.replied || interaction.deferred) {
-        await interaction.editReply(reply);
-      } else {
-        await interaction.reply(reply);
-      }
+    if (interaction.replied || interaction.deferred) {
+      await interaction.editReply(reply);
+    } else {
+      await interaction.reply(reply);
     }
   }
 });
@@ -219,6 +388,7 @@ function shutdown(signal: string) {
   if (statusMonitor) {
     statusMonitor.stop();
   }
+  pterodactyl.cleanup();
   database.close();
   client.destroy();
   process.exit(0);

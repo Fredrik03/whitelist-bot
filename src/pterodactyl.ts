@@ -1,5 +1,7 @@
 import axios, { AxiosError } from 'axios';
 import { log } from './utils';
+import { ConsoleListener } from './consoleListener';
+import { FileReader, WhitelistEntry } from './fileReader';
 
 export interface PterodactylConfig {
   url: string;
@@ -11,6 +13,7 @@ export interface PterodactylResult {
   success: boolean;
   error?: string;
   statusCode?: number;
+  consoleOutput?: string;
 }
 
 export interface ServerStatus {
@@ -34,6 +37,8 @@ export interface ServerStatusResult {
 
 class PterodactylAPI {
   private config: PterodactylConfig;
+  private consoleListener: ConsoleListener;
+  private fileReader: FileReader;
 
   constructor() {
     const url = process.env.PTERODACTYL_URL;
@@ -50,11 +55,24 @@ class PterodactylAPI {
       apiKey
     };
 
+    // Initialize console listener and file reader
+    this.consoleListener = new ConsoleListener(this.config);
+    this.fileReader = new FileReader(this.config);
+
     log('INFO', `Pterodactyl API initialized for server ${serverId}`);
   }
 
   /**
-   * Sends whitelist add command to Pterodactyl
+   * Initialize console listener connection
+   */
+  public async initializeConsoleListener(): Promise<void> {
+    if (!this.consoleListener.isConnected()) {
+      await this.consoleListener.connect();
+    }
+  }
+
+  /**
+   * Sends whitelist add command to Pterodactyl with console feedback
    */
   public async whitelistPlayer(username: string): Promise<PterodactylResult> {
     const endpoint = `${this.config.url}/api/client/servers/${this.config.serverId}/command`;
@@ -63,6 +81,7 @@ class PterodactylAPI {
     log('INFO', `Sending command to Pterodactyl: ${command}`);
 
     try {
+      // Send via regular API
       const response = await axios.post(
         endpoint,
         { command },
@@ -78,7 +97,7 @@ class PterodactylAPI {
 
       // Success: HTTP 204
       if (response.status === 204) {
-        log('INFO', `Successfully whitelisted ${username} on Pterodactyl`);
+        log('INFO', `Successfully sent whitelist command for ${username}`);
         return { success: true };
       }
 
@@ -92,6 +111,142 @@ class PterodactylAPI {
     } catch (error) {
       return this.handleError(error as AxiosError, username);
     }
+  }
+
+  /**
+   * Whitelist a player with console feedback verification
+   */
+  public async whitelistPlayerWithFeedback(username: string): Promise<PterodactylResult> {
+    try {
+      // Ensure console listener is connected
+      await this.initializeConsoleListener();
+
+      // Wait for console output matching whitelist response
+      const consolePromise = this.consoleListener.waitForConsoleMessage(
+        new RegExp(`(Added ${username} to the whitelist|That player is already whitelisted|Player does not exist)`, 'i'),
+        10000
+      );
+
+      // Send command via WebSocket
+      this.consoleListener.sendCommand(`whitelist add ${username}`);
+
+      // Wait for console feedback
+      const consoleOutput = await consolePromise;
+
+      log('INFO', `Console output for ${username}: ${consoleOutput}`);
+
+      // Parse console output
+      if (/Added .+ to the whitelist/i.test(consoleOutput)) {
+        return {
+          success: true,
+          consoleOutput: consoleOutput.trim()
+        };
+      } else if (/That player is already whitelisted/i.test(consoleOutput)) {
+        return {
+          success: false,
+          error: 'Spilleren er allerede whitelistet',
+          consoleOutput: consoleOutput.trim()
+        };
+      } else if (/Player does not exist/i.test(consoleOutput)) {
+        return {
+          success: false,
+          error: 'Spilleren finnes ikke (ugyldig brukernavn)',
+          consoleOutput: consoleOutput.trim()
+        };
+      }
+
+      return {
+        success: false,
+        error: 'Uventet svar fra serveren',
+        consoleOutput: consoleOutput.trim()
+      };
+
+    } catch (error: any) {
+      log('ERROR', `Failed to whitelist ${username} with feedback: ${error.message}`);
+
+      // Fallback to regular API method
+      log('INFO', `Falling back to regular API method for ${username}`);
+      return this.whitelistPlayer(username);
+    }
+  }
+
+  /**
+   * Remove a player from whitelist
+   */
+  public async unwhitelistPlayer(username: string): Promise<PterodactylResult> {
+    try {
+      // Ensure console listener is connected
+      await this.initializeConsoleListener();
+
+      // Wait for console output matching whitelist remove response
+      const consolePromise = this.consoleListener.waitForConsoleMessage(
+        new RegExp(`(Removed ${username} from the whitelist|That player is not whitelisted|Player does not exist)`, 'i'),
+        10000
+      );
+
+      // Send command via WebSocket
+      this.consoleListener.sendCommand(`whitelist remove ${username}`);
+
+      // Wait for console feedback
+      const consoleOutput = await consolePromise;
+
+      log('INFO', `Console output for unwhitelist ${username}: ${consoleOutput}`);
+
+      // Parse console output
+      if (/Removed .+ from the whitelist/i.test(consoleOutput)) {
+        return {
+          success: true,
+          consoleOutput: consoleOutput.trim()
+        };
+      } else if (/That player is not whitelisted/i.test(consoleOutput)) {
+        return {
+          success: false,
+          error: 'Spilleren er ikke whitelistet',
+          consoleOutput: consoleOutput.trim()
+        };
+      } else if (/Player does not exist/i.test(consoleOutput)) {
+        return {
+          success: false,
+          error: 'Spilleren finnes ikke',
+          consoleOutput: consoleOutput.trim()
+        };
+      }
+
+      return {
+        success: false,
+        error: 'Uventet svar fra serveren',
+        consoleOutput: consoleOutput.trim()
+      };
+
+    } catch (error: any) {
+      log('ERROR', `Failed to unwhitelist ${username}: ${error.message}`);
+      return {
+        success: false,
+        error: error.message || 'Kunne ikke fjerne spilleren fra whitelist'
+      };
+    }
+  }
+
+  /**
+   * Read whitelist.json from server
+   */
+  public async readWhitelist(): Promise<WhitelistEntry[]> {
+    return this.fileReader.readWhitelist();
+  }
+
+  /**
+   * Check if a player is whitelisted by reading the actual file
+   */
+  public async isPlayerWhitelisted(username: string): Promise<boolean> {
+    return this.fileReader.isWhitelisted(username);
+  }
+
+  /**
+   * Cleanup connections
+   */
+  public cleanup(): void {
+    this.consoleListener.disconnect();
+    log('INFO', 'Pterodactyl API cleaned up');
   }
 
   /**
