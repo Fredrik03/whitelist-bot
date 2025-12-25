@@ -54,7 +54,7 @@ export class StatusMonitor {
         return;
       }
 
-      // Fetch both server status and player info
+      // Fetch both server status and player info using query
       const serverResult = await pterodactyl.getServerStatus();
       const playerResult = minecraftQuery.isEnabled()
         ? await minecraftQuery.getPlayers()

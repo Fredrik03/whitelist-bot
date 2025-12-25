@@ -228,6 +228,51 @@ class PterodactylAPI {
   }
 
   /**
+   * Get online players from server console using /list command
+   */
+  public async getOnlinePlayers(): Promise<{ count: number; max: number; players: string[] }> {
+    try {
+      // Ensure console listener is connected
+      await this.initializeConsoleListener();
+
+      // Wait for console output from /list command
+      // Example output: "There are 2 of a max of 20 players online: Player1, Player2"
+      const consolePromise = this.consoleListener.waitForConsoleMessage(
+        /There are \d+ of a max of \d+ players online/i,
+        5000
+      );
+
+      // Send /list command
+      this.consoleListener.sendCommand('list');
+
+      // Wait for response
+      const consoleOutput = await consolePromise;
+
+      log('INFO', `List command output: ${consoleOutput}`);
+
+      // Parse the output
+      // Format: "There are X of a max of Y players online: Player1, Player2, Player3"
+      const match = consoleOutput.match(/There are (\d+) of a max of (\d+) players online:?\s*(.*)?/i);
+
+      if (match) {
+        const count = parseInt(match[1], 10);
+        const max = parseInt(match[2], 10);
+        const playerList = match[3] ? match[3].split(',').map(p => p.trim()).filter(p => p) : [];
+
+        return { count, max, players: playerList };
+      }
+
+      // Fallback - no players online
+      return { count: 0, max: 20, players: [] };
+
+    } catch (error: any) {
+      log('ERROR', `Failed to get online players: ${error.message}`);
+      // Return fallback data
+      return { count: 0, max: 20, players: [] };
+    }
+  }
+
+  /**
    * Read whitelist.json from server
    */
   public async readWhitelist(): Promise<WhitelistEntry[]> {
