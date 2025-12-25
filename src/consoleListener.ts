@@ -25,6 +25,8 @@ export class ConsoleListener {
   private reconnectTimer: NodeJS.Timeout | null = null;
   private tokenRefreshTimer: NodeJS.Timeout | null = null;
   private authenticated = false;
+  private authPromise: Promise<void> | null = null;
+  private authResolve: (() => void) | null = null;
 
   constructor(config: ConsoleListenerConfig) {
     this.config = config;
@@ -72,6 +74,11 @@ export class ConsoleListener {
         this.ws.close();
       }
 
+      // Create a promise that resolves when authentication succeeds
+      this.authPromise = new Promise((resolve) => {
+        this.authResolve = resolve;
+      });
+
       this.ws = new WebSocket(socket, {
         headers: {
           'Origin': this.config.url
@@ -103,9 +110,13 @@ export class ConsoleListener {
         this.scheduleReconnect();
       });
 
+      // Wait for authentication to complete
+      await this.authPromise;
+
     } catch (error: any) {
       log('ERROR', `Failed to connect to WebSocket: ${error.message}`);
       this.scheduleReconnect();
+      throw error;
     }
   }
 
@@ -119,6 +130,11 @@ export class ConsoleListener {
         this.authenticated = true;
         // Schedule token refresh (8 minutes, before 10min expiry)
         this.scheduleTokenRefresh();
+        // Resolve the authentication promise
+        if (this.authResolve) {
+          this.authResolve();
+          this.authResolve = null;
+        }
         break;
 
       case 'token expiring':

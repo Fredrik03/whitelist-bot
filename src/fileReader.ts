@@ -32,19 +32,29 @@ export class FileReader {
       const response = await axios.get(endpoint, {
         headers: {
           'Authorization': `Bearer ${this.config.apiKey}`,
-          'Accept': 'Application/vnd.pterodactyl.v1+json',
-          'Content-Type': 'application/json'
+          'Accept': 'text/plain'
         },
         params: {
           file: filePath
         },
+        responseType: 'text',
         timeout: 10000
       });
 
-      return response.data;
+      // Ensure we return a string
+      if (typeof response.data === 'string') {
+        return response.data;
+      }
+
+      // If it's not a string, convert it
+      return JSON.stringify(response.data);
     } catch (error: any) {
       if (error.response?.status === 404) {
         throw new Error(`File not found: ${filePath}`);
+      }
+      log('ERROR', `File read error for ${filePath}: ${error.message}`);
+      if (error.response?.data) {
+        log('ERROR', `Response data: ${typeof error.response.data === 'string' ? error.response.data : JSON.stringify(error.response.data)}`);
       }
       throw new Error(`Failed to read file: ${error.message}`);
     }
