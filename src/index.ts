@@ -67,11 +67,11 @@ const whitelistSyncCommand = new SlashCommandBuilder()
 
 const whitelistBedrockCommand = new SlashCommandBuilder()
   .setName('whitelist-bedrock')
-  .setDescription('Whitelist Bedrock spiller fra server cache')
+  .setDescription('Whitelist Bedrock spiller (ingen join påkrevd)')
   .addStringOption(option =>
     option
       .setName('username')
-      .setDescription('Bedrock brukernavn (må ha joinet serveren minst én gang)')
+      .setDescription('Xbox gamertag (uten punktum)')
       .setRequired(true)
   );
 
@@ -392,10 +392,10 @@ async function handleWhitelistBedrockCommand(interaction: ChatInputCommandIntera
 
     const embed = new EmbedBuilder()
       .setColor(0x57F287)
-      .setTitle('✅ Spiller whitelistet!')
+      .setTitle('✅ Bedrock spiller whitelistet!')
       .setDescription(`**${username}** har blitt lagt til på whitelist`)
       .addFields(
-        { name: 'Type', value: 'Bedrock (fra cache)', inline: true },
+        { name: 'Type', value: 'Bedrock (GeyserMC)', inline: true },
         { name: 'Av', value: userTag, inline: true }
       )
       .setFooter({ text: 'Whitelist System' })

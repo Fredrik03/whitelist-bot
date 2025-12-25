@@ -172,6 +172,49 @@ export class FileReader {
   }
 
   /**
+   * Convert Xbox gamertag to Floodgate UUID using GeyserMC API
+   */
+  public async gamertagToFloodgateUUID(gamertag: string): Promise<WhitelistEntry | null> {
+    try {
+      log('INFO', `Converting ${gamertag} to Floodgate UUID via GeyserMC API...`);
+
+      // Step 1: Get XUID from GeyserMC API
+      const response = await axios.get(`https://api.geysermc.org/v2/xbox/xuid/${gamertag}`, {
+        timeout: 10000
+      });
+
+      if (!response.data?.xuid) {
+        log('ERROR', `No XUID found for gamertag: ${gamertag}`);
+        return null;
+      }
+
+      const xuidDecimal = response.data.xuid;
+      log('INFO', `Got XUID for ${gamertag}: ${xuidDecimal}`);
+
+      // Step 2: Convert decimal XUID to hexadecimal (16 characters)
+      const xuidHex = BigInt(xuidDecimal).toString(16).padStart(16, '0');
+
+      // Step 3: Format as Floodgate UUID
+      const uuid = `00000000-0000-0000-${xuidHex.substring(0, 4)}-${xuidHex.substring(4)}`;
+
+      log('INFO', `Floodgate UUID for ${gamertag}: ${uuid}`);
+
+      return {
+        name: gamertag,
+        uuid: uuid
+      };
+
+    } catch (error: any) {
+      if (error.response?.status === 404) {
+        log('ERROR', `Gamertag not found or API rate limited: ${gamertag}`);
+        return null;
+      }
+      log('ERROR', `Failed to convert gamertag to UUID: ${error.message}`);
+      return null;
+    }
+  }
+
+  /**
    * Write content to a file on the server
    */
   private async writeFile(filePath: string, content: string): Promise<void> {
