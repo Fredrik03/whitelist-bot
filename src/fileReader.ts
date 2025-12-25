@@ -42,21 +42,21 @@ export class FileReader {
         transformResponse: [(data) => data] // Don't let axios transform the response
       });
 
-      log('DEBUG', `File read response type: ${typeof response.data}`);
-      log('DEBUG', `File read response is Buffer: ${Buffer.isBuffer(response.data)}`);
-      log('DEBUG', `File read response constructor: ${response.data?.constructor?.name}`);
+      log('INFO', `File read response type: ${typeof response.data}`);
+      log('INFO', `File read response is Buffer: ${Buffer.isBuffer(response.data)}`);
+      log('INFO', `File read response constructor: ${response.data?.constructor?.name}`);
 
       // Handle Buffer (axios might return Buffer even with responseType: 'text')
       if (Buffer.isBuffer(response.data)) {
-        log('DEBUG', 'Converting Buffer to UTF-8 string');
+        log('INFO', 'Converting Buffer to UTF-8 string');
         const content = response.data.toString('utf-8');
-        log('DEBUG', `Converted content (first 200 chars): ${content.substring(0, 200)}`);
+        log('INFO', `Converted content (first 200 chars): ${content.substring(0, 200)}`);
         return content;
       }
 
       // Handle string response
       if (typeof response.data === 'string') {
-        log('DEBUG', `String response (first 200 chars): ${response.data.substring(0, 200)}`);
+        log('INFO', `String response (first 200 chars): ${response.data.substring(0, 200)}`);
         return response.data;
       }
 
