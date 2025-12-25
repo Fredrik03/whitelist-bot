@@ -54,16 +54,39 @@ export class StatusMonitor {
         return;
       }
 
-      // Fetch both server status and player info
+      // Fetch server status
       const serverResult = await pterodactyl.getServerStatus();
-      const playerResult = minecraftQuery.isEnabled()
-        ? await minecraftQuery.getPlayers()
-        : { success: false as const, error: 'Not configured' };
+
+      // Try to get player info from console first (more accurate), then fall back to query
+      let playerInfo: PlayerInfo | undefined;
+
+      if (serverResult.success && serverResult.status?.state === 'running') {
+        try {
+          // Try console-based player tracking (requires WebSocket)
+          const consolePlayerData = await pterodactyl.getOnlinePlayers();
+          playerInfo = {
+            online: consolePlayerData.count,
+            max: consolePlayerData.max,
+            players: consolePlayerData.players
+          };
+          log('INFO', `Player data from console: ${consolePlayerData.count}/${consolePlayerData.max}`);
+        } catch (error) {
+          log('WARN', `Console player tracking failed, trying query: ${error}`);
+
+          // Fall back to query protocol
+          if (minecraftQuery.isEnabled()) {
+            const playerResult = await minecraftQuery.getPlayers();
+            if (playerResult.success) {
+              playerInfo = playerResult.playerInfo;
+            }
+          }
+        }
+      }
 
       const embed = this.createStatusEmbed(
         serverResult.success,
         serverResult.status,
-        playerResult.success ? playerResult.playerInfo : undefined,
+        playerInfo,
         serverResult.error
       );
 
