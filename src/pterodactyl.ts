@@ -326,8 +326,13 @@ class PterodactylAPI {
       // Add to whitelist.json directly
       await this.fileReader.addToWhitelist(entry);
 
-      // Reload whitelist
-      this.consoleListener.sendCommand('whitelist reload');
+      // Reload whitelist so the server picks up the new entry
+      try {
+        await this.initializeConsoleListener();
+        this.consoleListener.sendCommand('whitelist reload');
+      } catch (error) {
+        log('WARN', 'Could not send whitelist reload (server may be offline); entry was written to file');
+      }
 
       return {
         success: true,

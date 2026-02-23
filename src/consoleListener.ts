@@ -27,6 +27,8 @@ export class ConsoleListener {
   private authenticated = false;
   private authPromise: Promise<void> | null = null;
   private authResolve: (() => void) | null = null;
+  private isReconnecting = false;
+  private isConnecting = false;
 
   constructor(config: ConsoleListenerConfig) {
     this.config = config;
@@ -66,6 +68,14 @@ export class ConsoleListener {
    * Connect to Pterodactyl WebSocket
    */
   public async connect(): Promise<void> {
+    // Prevent concurrent connection attempts
+    if (this.isConnecting) {
+      log('WARN', 'Connection already in progress, skipping duplicate connect()');
+      return;
+    }
+
+    this.isConnecting = true;
+
     try {
       const { token, socket } = await this.getWebSocketToken();
 
@@ -107,7 +117,10 @@ export class ConsoleListener {
       this.ws.on('close', () => {
         log('WARN', 'WebSocket connection closed');
         this.authenticated = false;
-        this.scheduleReconnect();
+        // Only auto-schedule reconnect when not already handling a manual reconnect
+        if (!this.isReconnecting) {
+          this.scheduleReconnect();
+        }
       });
 
       // Wait for authentication to complete
@@ -117,6 +130,8 @@ export class ConsoleListener {
       log('ERROR', `Failed to connect to WebSocket: ${error.message}`);
       this.scheduleReconnect();
       throw error;
+    } finally {
+      this.isConnecting = false;
     }
   }
 
@@ -285,13 +300,38 @@ export class ConsoleListener {
   }
 
   /**
-   * Reconnect the WebSocket
+   * Reconnect the WebSocket.
+   * Cancels any pending auto-reconnect timers and token refresh to avoid
+   * multiple simultaneous connection attempts.
    */
-  private reconnect(): void {
-    if (this.ws) {
-      this.ws.close();
+  private async reconnect(): Promise<void> {
+    if (this.isReconnecting) {
+      log('WARN', 'Reconnect already in progress, skipping');
+      return;
     }
-    this.connect();
+
+    this.isReconnecting = true;
+
+    // Cancel scheduled timers so the close event from ws.close() below
+    // doesn't trigger an additional scheduleReconnect() call
+    if (this.reconnectTimer) {
+      clearTimeout(this.reconnectTimer);
+      this.reconnectTimer = null;
+    }
+    if (this.tokenRefreshTimer) {
+      clearTimeout(this.tokenRefreshTimer);
+      this.tokenRefreshTimer = null;
+    }
+
+    // connect() will close the existing ws itself before opening a new one
+    try {
+      await this.connect();
+    } catch (error) {
+      log('ERROR', `Reconnect failed: ${error}`);
+      // connect() already scheduled a retry via scheduleReconnect()
+    } finally {
+      this.isReconnecting = false;
+    }
   }
 
   /**

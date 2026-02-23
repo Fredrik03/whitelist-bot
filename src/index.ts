@@ -22,6 +22,9 @@ const DISCORD_TOKEN = process.env.DISCORD_TOKEN;
 const DISCORD_CHANNEL_ID = process.env.DISCORD_CHANNEL_ID;
 const DISCORD_STATUS_CHANNEL_ID = process.env.DISCORD_STATUS_CHANNEL_ID;
 const CLIENT_ID = process.env.DISCORD_CLIENT_ID;
+// Set REGISTER_COMMANDS=true only when deploying command changes.
+// Registering on every startup triggers Discord rate limits.
+const REGISTER_COMMANDS = process.env.REGISTER_COMMANDS === 'true';
 
 if (!DISCORD_TOKEN || !DISCORD_CHANNEL_ID || !CLIENT_ID) {
   log('ERROR', 'Missing required Discord environment variables');
@@ -481,7 +484,11 @@ process.on('SIGINT', () => shutdown('SIGINT'));
 async function start() {
   try {
     log('INFO', 'Starting whitelist bot...');
-    await registerCommands();
+    if (REGISTER_COMMANDS) {
+      await registerCommands();
+    } else {
+      log('INFO', 'Skipping command registration (set REGISTER_COMMANDS=true to register)');
+    }
     await client.login(DISCORD_TOKEN!);
   } catch (error: any) {
     log('ERROR', `Failed to start bot: ${error}`);

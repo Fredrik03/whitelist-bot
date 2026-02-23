@@ -9,6 +9,7 @@ export class StatusMonitor {
   private updateInterval: number;
   private intervalHandle?: NodeJS.Timeout;
   private statusMessageId?: string;
+  private isUpdating = false;
 
   constructor(client: Client, channelId: string, updateInterval: number = 30000) {
     this.client = client;
@@ -82,6 +83,13 @@ export class StatusMonitor {
    * Update the status message
    */
   private async updateStatus() {
+    if (this.isUpdating) {
+      log('WARN', 'Status update already in progress, skipping interval tick');
+      return;
+    }
+
+    this.isUpdating = true;
+
     try {
       const channel = await this.client.channels.fetch(this.channelId);
 
@@ -122,6 +130,8 @@ export class StatusMonitor {
 
     } catch (error) {
       log('ERROR', `Failed to update status: ${error}`);
+    } finally {
+      this.isUpdating = false;
     }
   }
 
