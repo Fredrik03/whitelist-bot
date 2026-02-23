@@ -50,7 +50,7 @@ class WhitelistDatabase {
 
   public isWhitelisted(username: string): WhitelistEntry | undefined {
     try {
-      const stmt = this.db.prepare('SELECT * FROM whitelist WHERE username = ?');
+      const stmt = this.db.prepare('SELECT * FROM whitelist WHERE LOWER(username) = LOWER(?)');
       const result = stmt.get(username) as WhitelistEntry | undefined;
       log('INFO', `Checked if ${username} is whitelisted: ${result ? 'Yes' : 'No'}`);
       return result;
