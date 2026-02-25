@@ -1,4 +1,4 @@
-import { Client, EmbedBuilder, TextChannel } from 'discord.js';
+import { Client, EmbedBuilder, Message, TextChannel } from 'discord.js';
 import { pterodactyl, ServerStatus } from './pterodactyl';
 import { minecraftQuery, PlayerInfo } from './minecraftQuery';
 import { log } from './utils';
@@ -8,13 +8,13 @@ export class StatusMonitor {
   private channelId: string;
   private updateInterval: number;
   private intervalHandle?: NodeJS.Timeout;
-  private statusMessageId?: string;
+  private statusMessage?: Message;
   private isUpdating = false;
 
-  constructor(client: Client, channelId: string, updateInterval: number = 30000) {
+  constructor(client: Client, channelId: string, updateInterval: number = 60000) {
     this.client = client;
     this.channelId = channelId;
-    this.updateInterval = updateInterval; // Default 30 seconds
+    this.updateInterval = updateInterval; // Default 60 seconds
   }
 
   /**
@@ -58,7 +58,7 @@ export class StatusMonitor {
       );
 
       if (statusMessage) {
-        this.statusMessageId = statusMessage.id;
+        this.statusMessage = statusMessage;
         log('INFO', `Found existing status message (ID: ${statusMessage.id}), reusing it`);
       } else {
         log('INFO', 'No existing status message found, will create new one');
@@ -112,20 +112,17 @@ export class StatusMonitor {
       );
 
       // Update or create message
-      if (this.statusMessageId) {
+      if (this.statusMessage) {
         try {
-          const message = await channel.messages.fetch(this.statusMessageId);
-          await message.edit({ embeds: [embed] });
+          await this.statusMessage.edit({ embeds: [embed] });
         } catch (error) {
           // Message was deleted, create a new one
           log('WARN', 'Status message was deleted, creating new one');
-          this.statusMessageId = undefined;
-          const newMessage = await channel.send({ embeds: [embed] });
-          this.statusMessageId = newMessage.id;
+          this.statusMessage = undefined;
+          this.statusMessage = await channel.send({ embeds: [embed] });
         }
       } else {
-        const message = await channel.send({ embeds: [embed] });
-        this.statusMessageId = message.id;
+        this.statusMessage = await channel.send({ embeds: [embed] });
       }
 
     } catch (error) {
